@@ -7,13 +7,14 @@ from google.oauth2 import service_account
 # --- CONFIGURATION ---
 
 gcp_info = st.secrets["gcp_service_account"]
-credentials = service_account.Credentials.from_service_account_info(gcp_info)
-PROJECT_ID = "project-6ca3a1f6-ee18-4141-bf7" # From your error log
+SCOPES = ['https://www.googleapis.com/auth/cloud-platform']
+credentials = service_account.Credentials.from_service_account_info(
+    gcp_info, 
+    scopes=SCOPES
+)
 LOCATION = "us-central1"
 MODEL_ID = "gemini-2.5-flash" # Current stable version
 
-# Initialize Vertex AI Client
-# When deployed to Cloud Run, this automatically uses the service account attached to the container
 client = genai.Client(
     vertexai=True, 
     project=gcp_info["project_id"], 
