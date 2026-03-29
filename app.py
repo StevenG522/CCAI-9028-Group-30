@@ -34,7 +34,7 @@ st.title("🎓 AI Study Tutor")
 st.markdown("Upload a document, and I'll generate custom study questions for you.")
 
 # File Uploader
-uploaded_file = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], max_upload_size=200)
+uploaded_file = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], max_upload_size=5)
 
 if uploaded_file:
     if st.button(
