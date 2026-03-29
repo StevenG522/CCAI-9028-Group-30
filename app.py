@@ -2,16 +2,24 @@ import streamlit as st
 from google import genai
 from google.genai import types
 import os
+from google.oauth2 import service_account
 
 # --- CONFIGURATION ---
+
+gcp_info = st.secrets["gcp_service_account"]
+credentials = service_account.Credentials.from_service_account_info(gcp_info)
 PROJECT_ID = "project-6ca3a1f6-ee18-4141-bf7" # From your error log
 LOCATION = "us-central1"
 MODEL_ID = "gemini-2.5-flash" # Current stable version
 
 # Initialize Vertex AI Client
 # When deployed to Cloud Run, this automatically uses the service account attached to the container
-client = genai.Client(vertexai=True, project=PROJECT_ID, location=LOCATION)
-
+client = genai.Client(
+    vertexai=True, 
+    project=gcp_info[PROJECT_ID], 
+    location="LOCATION",
+    credentials=credentials 
+)
 # --- SESSION STATE FOR BUTTON LOCKING ---
 if "is_processing" not in st.session_state:
     st.session_state.is_processing = False
@@ -25,7 +33,7 @@ st.title("🎓 AI Study Tutor")
 st.markdown("Upload a document, and I'll generate custom study questions for you.")
 
 # File Uploader
-uploaded_file = st.file_uploader("Upload your study notes (PDF)", type=["pdf"])
+uploaded_file = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], max_upload_size=200)
 
 if uploaded_file:
     if st.button(
