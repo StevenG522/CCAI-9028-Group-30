@@ -16,7 +16,7 @@ MODEL_ID = "gemini-2.5-flash" # Current stable version
 # When deployed to Cloud Run, this automatically uses the service account attached to the container
 client = genai.Client(
     vertexai=True, 
-    project=gcp_info[PROJECT_ID], 
+    project=gcp_info["project_id"], 
     location="LOCATION",
     credentials=credentials 
 )
