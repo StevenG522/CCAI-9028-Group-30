@@ -18,7 +18,7 @@ MODEL_ID = "gemini-2.5-flash" # Current stable version
 client = genai.Client(
     vertexai=True, 
     project=gcp_info["project_id"], 
-    location="LOCATION",
+    location=LOCATION,
     credentials=credentials 
 )
 # --- SESSION STATE FOR BUTTON LOCKING ---
