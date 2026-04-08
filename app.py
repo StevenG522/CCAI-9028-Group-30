@@ -130,7 +130,7 @@ if st.session_state.page == "Custom Files":
     st.session_state.quantity = quantity
 
     # File Uploader
-    uploaded_files = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], accept_multiple_files=True, max_upload_size=200)
+    uploaded_files = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], accept_multiple_files=True, max_upload_size=10)
 
     if uploaded_files:
         if st.button(
