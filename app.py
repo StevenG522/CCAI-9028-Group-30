@@ -87,6 +87,12 @@ if "hkdse_answers_submitted" not in st.session_state:
 if "hkdse_followup_conversation" not in st.session_state:
     st.session_state.hkdse_followup_conversation = ""
 
+if "custom_prompt" not in st.session_state:
+    st.session_state.custom_prompt = ""
+
+if "hkdse_custom_prompt" not in st.session_state:
+    st.session_state.hkdse_custom_prompt = ""
+
 def start_processing():
     st.session_state.is_processing = True
 
@@ -95,6 +101,10 @@ st.set_page_config(page_title="AI Study Tutor", page_icon="🎓")
 st.title("🎓 AI Study Tutor")
 
 # Sidebar for page selection
+st.sidebar.markdown(
+    '<div style="background-color: #E3F2FD; padding: 10px; border-radius: 5px; margin-bottom: 10px;">Click on the buttons to navigate</div>',
+    unsafe_allow_html=True
+)
 if st.sidebar.button("Custom Files"):
     st.session_state.page = "Custom Files"
     st.session_state.generated_questions = None
@@ -130,7 +140,11 @@ if st.session_state.page == "Custom Files":
     st.session_state.quantity = quantity
 
     # File Uploader
-    uploaded_files = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], accept_multiple_files=True, max_upload_size=10)
+    uploaded_files = st.file_uploader("Upload your study notes (PDF)", type=["pdf"], accept_multiple_files=True, max_upload_size=5)
+
+    # Custom prompt for question generation
+    custom_prompt = st.text_area("Custom prompt (optional)", placeholder="Enter any additional instructions for question generation", key="custom_prompt_textarea")
+    st.session_state.custom_prompt = custom_prompt
 
     if uploaded_files:
         if st.button(
@@ -149,11 +163,15 @@ if st.session_state.page == "Custom Files":
                         pdf_parts.append(pdf_part)
                     
                     if st.session_state.question_type == "Multiple Choice":
-                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} multiple choice study questions with hints. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} multiple choice study questions with hints. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     elif st.session_state.question_type == "True or False":
-                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} true or false study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} true or false study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     else:
-                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+
+                    # Append custom prompt if provided
+                    if st.session_state.custom_prompt:
+                        prompt += f"\n\nAdditional instructions: {st.session_state.custom_prompt}"
 
                     # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
                     response = client.models.generate_content(
@@ -215,7 +233,13 @@ if st.session_state.page == "Custom Files":
                     st.session_state.feedback_response = feedback_response
                     st.session_state.followup_response = None
                     st.session_state.answers_submitted = True
-                    st.session_state.followup_conversation = ""
+                    # Initialize conversation history with initial context
+                    st.session_state.followup_conversation = (
+                        f"Original questions: {st.session_state.generated_questions}\n"
+                        f"User answers: {', '.join(answers)}\n"
+                        f"AI feedback: {feedback_response}\n"
+                        f"---\n"
+                    )
                     st.rerun()
                     
                 except Exception as e:
@@ -236,18 +260,8 @@ if st.session_state.page == "Custom Files":
                 submit_followup = st.form_submit_button("Submit follow-up")
 
                 if submit_followup and continue_text:
-                    # Build the full conversation context
-                    if not st.session_state.followup_conversation:
-                        # First follow-up: include original context
-                        st.session_state.followup_conversation = (
-                            f"Original questions: {st.session_state.generated_questions}\n"
-                            f"User answers: {', '.join(st.session_state.user_answers)}\n"
-                            f"AI feedback: {st.session_state.feedback_response}\n"
-                            f"---\n"
-                        )
-                    
                     # Append user input to conversation
-                    st.session_state.followup_conversation += f"User: {continue_text}\n"
+                    st.session_state.followup_conversation += f"USER: {continue_text}  \n"
                     
                     # Get AI response with full conversation context
                     full_prompt = (
@@ -266,7 +280,7 @@ if st.session_state.page == "Custom Files":
                     # ai_response = str(random.randint(0, 100))
                     
                     # Append AI response to conversation
-                    st.session_state.followup_conversation += f"AI: {ai_response}\n"
+                    st.session_state.followup_conversation += f"AI: {ai_response}\n\n"
                     st.session_state.followup_response = ai_response
 
                 latest_ai = st.session_state.followup_response if st.session_state.followup_response else st.session_state.feedback_response
@@ -301,7 +315,11 @@ if st.session_state.page == "HK DSE":
         st.session_state.hkdse_quantity = hkdse_quantity
 
         # Optional file upload
-        hkdse_uploaded_files = st.file_uploader("Upload study materials (optional, PDF)", type=["pdf"], accept_multiple_files=True, max_upload_size=200, key="hkdse_file_uploader")
+        hkdse_uploaded_files = st.file_uploader("Upload study materials (optional, PDF)", type=["pdf"], accept_multiple_files=True, max_upload_size=5, key="hkdse_file_uploader")
+
+        # Custom prompt for question generation
+        hkdse_custom_prompt = st.text_area("Custom prompt (optional)", placeholder="Enter any additional instructions for question generation", key="hkdse_custom_prompt_textarea")
+        st.session_state.hkdse_custom_prompt = hkdse_custom_prompt
 
         if st.button("Generate Questions", key="hkdse_generate"):
             with st.spinner("Generating questions..."):
@@ -319,19 +337,23 @@ if st.session_state.page == "HK DSE":
                     
                     if st.session_state.hkdse_question_type == "Multiple Choice":
                         if pdf_parts:
-                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     elif st.session_state.hkdse_question_type == "True or False":
                         if pdf_parts:
-                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     else:
                         if pdf_parts:
-                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, only use capitals for emphasis"
+                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+
+                    # Append custom prompt if provided
+                    if st.session_state.hkdse_custom_prompt:
+                        prompt += f"\n\nAdditional instructions: {st.session_state.hkdse_custom_prompt}"
 
                     # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
                     response = client.models.generate_content(
@@ -390,6 +412,13 @@ if st.session_state.page == "HK DSE":
                         st.session_state.hkdse_user_answers = hkdse_answers
                         st.session_state.hkdse_feedback_response = feedback_response
                         st.session_state.hkdse_answers_submitted = True
+                        # Initialize conversation history with initial context
+                        st.session_state.hkdse_followup_conversation = (
+                            f"Original questions: {st.session_state.hkdse_generated_questions}\n"
+                            f"User answers: {', '.join(hkdse_answers)}\n"
+                            f"AI feedback: {feedback_response}\n"
+                            f"---\n"
+                        )
                         st.rerun()
                         
                     except Exception as e:
@@ -410,18 +439,8 @@ if st.session_state.page == "HK DSE":
                     submit_followup = st.form_submit_button("Submit follow-up", key="hkdse_submit_followup")
 
                     if submit_followup and continue_text:
-                        # Build the full conversation context
-                        if not st.session_state.hkdse_followup_conversation:
-                            # First follow-up: include original context
-                            st.session_state.hkdse_followup_conversation = (
-                                f"Original questions: {st.session_state.hkdse_generated_questions}\n"
-                                f"User answers: {', '.join(st.session_state.hkdse_user_answers)}\n"
-                                f"AI feedback: {st.session_state.hkdse_feedback_response}\n"
-                                f"---\n"
-                            )
-                        
                         # Append user input to conversation
-                        st.session_state.hkdse_followup_conversation += f"User: {continue_text}\n"
+                        st.session_state.hkdse_followup_conversation += f"USER: {continue_text}  \n"
                         
                         # Get AI response with full conversation context
                         full_prompt = (
@@ -440,7 +459,7 @@ if st.session_state.page == "HK DSE":
                         # ai_response = str(random.randint(0, 100))
                         
                         # Append AI response to conversation
-                        st.session_state.hkdse_followup_conversation += f"AI: {ai_response}\n"
+                        st.session_state.hkdse_followup_conversation += f"AI: {ai_response}\n\n "
                         st.session_state.hkdse_followup_response = ai_response
 
                     latest_hkdse_ai = st.session_state.hkdse_followup_response if st.session_state.hkdse_followup_response else st.session_state.hkdse_feedback_response
