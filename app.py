@@ -96,6 +96,99 @@ if "hkdse_custom_prompt" not in st.session_state:
 def start_processing():
     st.session_state.is_processing = True
 
+def get_tutor_prompt():
+    return f"""Role: You are an expert tutor specializing in question generation. You have 10+ years of experience generating thought-provoking questions in various subjects.
+    Background: I am a secondary school student preparing for my exams."""
+
+def get_HKDSE_tutor_prompt():
+    return f"""Role: You are an HKDSE examiner and curriculum specialist. 
+    You have written actual HKDSE questions for the Hong Kong Examinations and Assessment Authority (HKEAA).
+    You understand the exact style, difficulty level, and marking scheme requirements.
+    Background: I am an HKDSE student.
+    Constraints: -Questions must be original — do not copy past paper questions verbatim.
+    Difficulty should start easy, then progress to medium — no HKDSE hard questions initially.
+    For each question, include a "marking scheme" note showing how marks would be allocated."""
+
+def get_tutor_feedback_prompt(questions, user_answers):
+    return f"""Here are the questions: {questions}\n\nUser's answers: {user_answers}\n\n
+    Role: You are an experienced exam marker who has graded thousands of exam papers. You know exactly why students lose marks. You are patient and explain in a way that helps students learn, not just get the answer.
+    Background: I am a student who attempted a practice question. I need to understand the quality of my answers, WHAT the correct steps are, and if my answers are wrong, how can I avoid this mistake next time.
+    Task: You will be given: The original question. The student's answer. 
+    If the student is wrong, explain to the student why their answer is wrong, show the correct step-by-step working, and highlight the common mistake they made.
+    Constraints:
+- Start with a one-sentence empathetic statement (e.g., "Good try! Many students make this mistake.")
+- Then state EXACTLY what the student did wrong
+- Show the correct solution in numbered steps
+- List 1-2 similar common mistakes students make on this question type
+- End with a short practice tip
+- Keep total explanation between 150-250 words
+- Do not be sarcastic or negative — always encouraging
+
+Example output:
+
+Question: "Solve x² + 6x - 3 = 0 by completing the square."
+Student answer: "x² + 6x - 3 = 0 → x² + 6x = 3 → (x+3)² = 3 → x = -3 ± √3"
+Correct answer: "x = -3 ± 2√3"
+Marking scheme excerpt: "Step 2: Add (b/2)² = 9 to both sides → x²+6x+9 = 3+9 → (x+3)² = 12 (2 marks)"
+
+Output:
+"Good try! Many students forget to add (b/2)² to BOTH sides. You correctly moved the constant term, but you forgot to add 9 to the right side. Let me show you:
+
+Correct steps:
+1. x² + 6x - 3 = 0 → x² + 6x = 3
+2. Add (6/2)² = 9 to both sides: x² + 6x + 9 = 3 + 9
+3. (x + 3)² = 12
+4. x + 3 = ±√12 = ±2√3
+5. x = -3 ± 2√3
+
+Common mistake: Students often only add to the left side or forget to simplify √12 to 2√3.
+
+Practice tip: Always write the step 'add (b/2)² to BOTH sides' explicitly to remind yourself."
+Example output ends.
+Now provide your explanation."""
+
+def get_HKDSE_tutor_feedback_prompt(questions, user_answers):
+    return f"""Here are the HK DSE {st.session_state.hkdse_category} questions: {questions}\n\nUser's answers: {user_answers}\n\n
+    Role: You are an experienced HKDSE marker who has graded thousands of exam papers. You know exactly why students lose marks and what the official marking scheme requires. You are patient and explain in a way that helps students learn, not just get the answer.
+    Background: I am an HKDSE student who attempted a practice question. I need to understand the quality of my answers, WHAT the correct steps are, and if my answers are wrong, how can I avoid this mistake next time.
+    Task: You will be given: The original question. The student's answer. The relevant marking schemes (provided via RAG from past papers)
+    If the student is wrong, explain to the student why their answer is wrong, show the correct step-by-step working, reference the official marking scheme, and highlight the common mistake they made.
+    Constraints:
+- Start with a one-sentence empathetic statement (e.g., "Good try! Many students make this mistake.")
+- Then state EXACTLY what the student did wrong
+- Show the correct solution in numbered steps
+- Quote the relevant part of the marking scheme (e.g., "According to the 2022 HKDSE marking scheme, step 2 is worth 2 marks...")
+- List 1-2 similar common mistakes students make on this question type
+- End with a short practice tip
+- Keep total explanation between 150-250 words
+- Do not be sarcastic or negative — always encouraging
+
+Example output:
+
+Question: "Solve x² + 6x - 3 = 0 by completing the square."
+Student answer: "x² + 6x - 3 = 0 → x² + 6x = 3 → (x+3)² = 3 → x = -3 ± √3"
+Correct answer: "x = -3 ± 2√3"
+Marking scheme excerpt: "Step 2: Add (b/2)² = 9 to both sides → x²+6x+9 = 3+9 → (x+3)² = 12 (2 marks)"
+
+Output:
+"Good try! Many students forget to add (b/2)² to BOTH sides. You correctly moved the constant term, but you forgot to add 9 to the right side. Let me show you:
+
+Correct steps:
+1. x² + 6x - 3 = 0 → x² + 6x = 3
+2. Add (6/2)² = 9 to both sides: x² + 6x + 9 = 3 + 9
+3. (x + 3)² = 12
+4. x + 3 = ±√12 = ±2√3
+5. x = -3 ± 2√3
+
+According to the marking scheme, step 2 (adding 9 to both sides) earns 2 marks — you would have lost those marks.
+
+Common mistake: Students often only add to the left side or forget to simplify √12 to 2√3.
+
+Practice tip: Always write the step 'add (b/2)² to BOTH sides' explicitly to remind yourself."
+Example output ends.
+Now provide your explanation.
+"""
+
 st.set_page_config(page_title="AI Study Tutor", page_icon="🎓")
 
 st.title("🎓 AI Study Tutor")
@@ -163,11 +256,11 @@ if st.session_state.page == "Custom Files":
                         pdf_parts.append(pdf_part)
                     
                     if st.session_state.question_type == "Multiple Choice":
-                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} multiple choice study questions with hints. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} multiple choice study questions with hints. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     elif st.session_state.question_type == "True or False":
-                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} true or false study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} true or false study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     else:
-                        prompt = f"You are a professional tutor. Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
 
                     # Append custom prompt if provided
                     if st.session_state.custom_prompt:
@@ -199,7 +292,7 @@ if st.session_state.page == "Custom Files":
     if st.session_state.generated_questions:
         st.markdown("---")
         st.markdown("### Questions")
-        st.text(st.session_state.generated_questions)
+        st.markdown(st.session_state.generated_questions)
 
     # Answer input section
     if st.session_state.generated_questions:
@@ -217,7 +310,7 @@ if st.session_state.page == "Custom Files":
         if st.button("Submit Answers", disabled=st.session_state.answers_submitted):
             with st.spinner("Checking answers..."):
                 try:
-                    feedback_prompt = f"Here are the questions: {st.session_state.generated_questions}\n\nUser's answers: {', '.join(answers)}\n\nAs a tutor, provide detailed feedback on whether each answer is correct, explain why, and suggest improvements if needed."
+                    feedback_prompt = get_tutor_feedback_prompt(st.session_state.generated_questions, answers)
                     
                     # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
                     feedback_response = client.models.generate_content(
@@ -337,19 +430,19 @@ if st.session_state.page == "HK DSE":
                     
                     if st.session_state.hkdse_question_type == "Multiple Choice":
                         if pdf_parts:
-                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     elif st.session_state.hkdse_question_type == "True or False":
                         if pdf_parts:
-                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     else:
                         if pdf_parts:
-                            prompt = f"You are a professional tutor. Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"You are a professional tutor. Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
 
                     # Append custom prompt if provided
                     if st.session_state.hkdse_custom_prompt:
@@ -379,7 +472,7 @@ if st.session_state.page == "HK DSE":
         if st.session_state.hkdse_generated_questions:
             st.markdown("---")
             st.markdown("### Questions")
-            st.text(st.session_state.hkdse_generated_questions)
+            st.markdown(st.session_state.hkdse_generated_questions)
 
         # Answer input section
         if st.session_state.hkdse_generated_questions:
@@ -397,7 +490,7 @@ if st.session_state.page == "HK DSE":
             if st.button("Submit Answers", disabled=st.session_state.hkdse_answers_submitted, key="hkdse_submit_answers"):
                 with st.spinner("Checking answers..."):
                     try:
-                        feedback_prompt = f"Here are the HK DSE {st.session_state.hkdse_category} questions: {st.session_state.hkdse_generated_questions}\n\nUser's answers: {', '.join(hkdse_answers)}\n\nAs a tutor, provide detailed feedback on whether each answer is correct, explain why, and suggest improvements if needed."
+                        feedback_prompt = get_HKDSE_tutor_feedback_prompt(st.session_state.hkdse_generated_questions, hkdse_answers)
                         
                         # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
                         feedback_response = client.models.generate_content(
