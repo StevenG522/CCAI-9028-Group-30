@@ -196,10 +196,8 @@ st.set_page_config(page_title="AI Study Tutor", page_icon="🎓")
 st.title("🎓 AI Study Tutor")
 
 # Sidebar for page selection
-st.sidebar.markdown(
-    '<div style="background-color: #E3F2FD; padding: 10px; border-radius: 5px; margin-bottom: 10px;">Click on the buttons to navigate</div>',
-    unsafe_allow_html=True
-)
+st.sidebar.info("Click on the buttons to navigate")
+
 if st.sidebar.button("Custom Files"):
     st.session_state.page = "Custom Files"
     st.session_state.generated_questions = None
