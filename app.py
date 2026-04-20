@@ -98,7 +98,8 @@ def start_processing():
 
 def get_tutor_prompt():
     return f"""Role: You are an expert tutor specializing in question generation. You have 10+ years of experience generating thought-provoking questions in various subjects.
-    Background: I am a secondary school student preparing for my exams."""
+    Background: I am a secondary school student preparing for my exams.
+    Constraints: Never mention your role, simply generate the questions."""
 
 def get_HKDSE_tutor_prompt():
     return f"""Role: You are an HKDSE examiner and curriculum specialist. 
@@ -107,7 +108,8 @@ def get_HKDSE_tutor_prompt():
     Background: I am an HKDSE student.
     Constraints: -Questions must be original — do not copy past paper questions verbatim.
     Difficulty should start easy, then progress to medium — no HKDSE hard questions initially.
-    For each question, include a "marking scheme" note showing how marks would be allocated."""
+    For each question, include a "marking scheme" note showing how marks would be allocated.
+    Never mention your role, simply generate the questions."""
 
 def get_tutor_feedback_prompt(questions, user_answers):
     return f"""Here are the questions: {questions}\n\nUser's answers: {user_answers}\n\n
@@ -256,11 +258,11 @@ if st.session_state.page == "Custom Files":
                         pdf_parts.append(pdf_part)
                     
                     if st.session_state.question_type == "Multiple Choice":
-                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} multiple choice study questions with hints. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} multiple choice study questions. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     elif st.session_state.question_type == "True or False":
-                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} true or false study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} true or false study questions. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     else:
-                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
 
                     # Append custom prompt if provided
                     if st.session_state.custom_prompt:
@@ -389,7 +391,7 @@ if st.session_state.page == "HK DSE":
         st.markdown("### HK DSE Question Generator")
         hkdse_category = st.radio(
             "Select HK DSE Category",
-            ["Chinese", "English", "Math", "Physics", "Chemistry", "Biology", "Economics"],
+            ["Chinese", "English", "Math", "Physics", "Chemistry", "Biology", "Economics", "Business", "Accounting", "Financial Studies", "Tourism", "Hospitality Studies"],
             key="hkdse_category_radio"
         )
         hkdse_question_type = st.radio(
@@ -435,14 +437,14 @@ if st.session_state.page == "HK DSE":
                             prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     elif st.session_state.hkdse_question_type == "True or False":
                         if pdf_parts:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                     else:
                         if pdf_parts:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
                         else:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category} with hints. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
 
                     # Append custom prompt if provided
                     if st.session_state.hkdse_custom_prompt:
