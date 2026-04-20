@@ -389,7 +389,7 @@ if st.session_state.page == "HK DSE":
         st.markdown("### HK DSE Question Generator")
         hkdse_category = st.radio(
             "Select HK DSE Category",
-            ["Chinese", "English", "Math", "Physics", "Chemistry", "Biology", "Economics", "Business", "Accounting", "Financial Studies", "Tourism", "Hospitality Studies"],
+            ["Chinese", "English", "Math", "Physics", "Chemistry", "Biology", "Economics", "Business, Accounting, and Financial Studies", "Tourism and Hospitality Studies"],
             key="hkdse_category_radio"
         )
         hkdse_question_type = st.radio(
