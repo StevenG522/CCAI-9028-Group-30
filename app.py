@@ -5,6 +5,9 @@ import os
 import random
 import time
 from google.oauth2 import service_account
+import vertexai
+from vertexai.generative_models import GenerativeModel, Tool
+from vertexai.preview import rag
 
 # --- CONFIGURATION ---
 
@@ -14,15 +17,48 @@ credentials = service_account.Credentials.from_service_account_info(
     gcp_info, 
     scopes=SCOPES
 )
-LOCATION = "us-central1"
+LOCATION = "asia-northeast1"
 MODEL_ID = "gemini-2.5-flash" # Current stable version
-
+PROJECT_ID = gcp_info["project_id"]
 client = genai.Client(
     vertexai=True, 
-    project=gcp_info["project_id"], 
+    project=PROJECT_ID, 
     location=LOCATION,
     credentials=credentials 
 )
+
+
+CORPUS_DISPLAY_NAME = "HKDSE_PDFs"
+def get_or_create_corpus():
+    corpora = list(rag.list_corpora())
+    for c in corpora:
+        if c.display_name == CORPUS_DISPLAY_NAME:
+            return c
+    return rag.create_corpus(display_name=CORPUS_DISPLAY_NAME)
+my_corpus = get_or_create_corpus()
+
+vertexai.init(project=PROJECT_ID, location=LOCATION, credentials=credentials)
+
+rag_retrieval_tool = Tool.from_retrieval(
+    retrieval=rag.Retrieval(
+        source=rag.VertexRagStore(
+            rag_resources=[
+                rag.RagResource(
+                    rag_corpus=my_corpus.name,
+                )
+            ],
+            rag_retrieval_config=rag.RagRetrievalConfig(
+                top_k=10,
+                filter=rag.utils.resources.Filter(vector_distance_threshold=0.5),
+            ),
+        ),
+    )
+)
+
+rag_model = GenerativeModel(
+    model_name="gemini-2.5-flash", tools=[rag_retrieval_tool]
+)
+
 # --- SESSION STATE FOR BUTTON LOCKING ---
 if "is_processing" not in st.session_state:
     st.session_state.is_processing = False
@@ -96,6 +132,16 @@ if "hkdse_custom_prompt" not in st.session_state:
 def start_processing():
     st.session_state.is_processing = True
 
+def get_prompt_formatting_string():
+    return "Please format the multiple-choice questions using the following structure:\
+    Use a header (##) for the question title.\
+    Use a numbered list (1., 2.) for the questions.\
+    Never generate LATEX text as it will not render properly    \
+    Use an uppercase lettered list (A., B., C., D.) for the options, ensuring each option is on a new line.\
+    Use a blockquote (>) for the marking scheme. NEVER generate a marking scheme that reveals the correct or incorrect answers when creating questions.\
+    Use bold text for key terms like CORRECT or LENGTH."
+
+
 def get_tutor_prompt():
     return f"""Role: You are an expert tutor specializing in question generation. You have 10+ years of experience generating thought-provoking questions in various subjects.
     Background: I am a secondary school student preparing for my exams.
@@ -104,16 +150,16 @@ def get_tutor_prompt():
 def get_HKDSE_tutor_prompt():
     return f"""Role: You are an HKDSE examiner and curriculum specialist. 
     You have written actual HKDSE questions for the Hong Kong Examinations and Assessment Authority (HKEAA).
-    You understand the exact style, difficulty level, and marking scheme requirements.
+    You understand the exact style, difficulty level, and marking scheme requirements. You are able to access curated RAG retrieval from past HKDSE papers to ensure the questions you generate are fully aligned with the official standards. 
     Background: I am an HKDSE student.
     Constraints: -Questions must be original — do not copy past paper questions verbatim.
     Difficulty should start easy, then progress to medium — no HKDSE hard questions initially.
-    For each question, include a "marking scheme" note showing how marks would be allocated.
+    NEVER show the correct or incorrect answers in the marking scheme when generating questions. The marking scheme should only show the steps required to get full marks, without revealing the final answer. 
     Never mention your role, simply generate the questions."""
 
 def get_tutor_feedback_prompt(questions, user_answers):
     return f"""Here are the questions: {questions}\n\nUser's answers: {user_answers}\n\n
-    Role: You are an experienced exam marker who has graded thousands of exam papers. You know exactly why students lose marks. You are patient and explain in a way that helps students learn, not just get the answer.
+    Role: You are an experienced exam marker who has graded thousands of exam papers. You know exactly why students lose marks. You are patient and explain in a way that helps students learn, not just get the answer. 
     Background: I am a student who attempted a practice question. I need to understand the quality of my answers, WHAT the correct steps are, and if my answers are wrong, how can I avoid this mistake next time.
     Task: You will be given: The original question. The student's answer. 
     If the student is wrong, explain to the student why their answer is wrong, show the correct step-by-step working, and highlight the common mistake they made.
@@ -155,6 +201,7 @@ def get_HKDSE_tutor_feedback_prompt(questions, user_answers):
     Background: I am an HKDSE student who attempted a practice question. I need to understand the quality of my answers, WHAT the correct steps are, and if my answers are wrong, how can I avoid this mistake next time.
     Task: You will be given: The original question. The student's answer. The relevant marking schemes (provided via RAG from past papers)
     If the student is wrong, explain to the student why their answer is wrong, show the correct step-by-step working, reference the official marking scheme, and highlight the common mistake they made.
+    You are able to access curated RAG retrieval from past HKDSE papers to ensure your feedback is fully aligned with the official standards and standard marking schemes.
     Constraints:
 - Start with a one-sentence empathetic statement (e.g., "Good try! Many students make this mistake.")
 - Then state EXACTLY what the student did wrong
@@ -256,11 +303,11 @@ if st.session_state.page == "Custom Files":
                         pdf_parts.append(pdf_part)
                     
                     if st.session_state.question_type == "Multiple Choice":
-                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} multiple choice study questions. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} multiple choice study questions. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. {get_prompt_formatting_string()}"
                     elif st.session_state.question_type == "True or False":
-                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} true or false study questions. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} true or false study questions. Do not provide any answers. {get_prompt_formatting_string()}"
                     else:
-                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                        prompt = f"{get_tutor_prompt()} Based on this document, generate {st.session_state.quantity} {st.session_state.question_type.lower()} study questions. Do not provide any answers. {get_prompt_formatting_string()}"
 
                     # Append custom prompt if provided
                     if st.session_state.custom_prompt:
@@ -359,7 +406,7 @@ if st.session_state.page == "Custom Files":
                     # Get AI response with full conversation context
                     full_prompt = (
                         f"{st.session_state.followup_conversation}"
-                        f"As a tutor, continue the conversation and provide helpful guidance based on all context above."
+                        f"As a tutor, continue the conversation and provide helpful guidance based on all context above. Try to point out specific shortcomings of the user's answers and general mistakes (such as not thinking critically enough), and give specific advice on how to improve."
                     )
                     
                     # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
@@ -430,30 +477,26 @@ if st.session_state.page == "HK DSE":
                     
                     if st.session_state.hkdse_question_type == "Multiple Choice":
                         if pdf_parts:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. {get_prompt_formatting_string()}"
                         else:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} multiple choice questions for HK DSE {st.session_state.hkdse_category}. Each question should have 4 answer options labeled a, b, c, d. Do not provide any answers. {get_prompt_formatting_string()}"
                     elif st.session_state.hkdse_question_type == "True or False":
                         if pdf_parts:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. {get_prompt_formatting_string()}"
                         else:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} true or false questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. {get_prompt_formatting_string()}"
                     else:
                         if pdf_parts:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Based on the uploaded materials, generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. {get_prompt_formatting_string()}"
                         else:
-                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. Instead of using ** for bold, or * for italics, use capitals sparringly for emphasis"
+                            prompt = f"{get_HKDSE_tutor_prompt()} Generate {st.session_state.hkdse_quantity} short answer questions for HK DSE {st.session_state.hkdse_category}. Do not provide any answers. {get_prompt_formatting_string()}"
 
                     # Append custom prompt if provided
                     if st.session_state.hkdse_custom_prompt:
                         prompt += f"\n\nAdditional instructions: {st.session_state.hkdse_custom_prompt}"
 
                     # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
-                    response = client.models.generate_content(
-                        model=MODEL_ID,
-                        contents=pdf_parts + [prompt] if pdf_parts else [prompt]
-                    ).text
-
+                    response = rag_model.generate_content(pdf_parts + [prompt] if pdf_parts else [prompt]).text
                     # COMMENT THIS BACK IN WHEN YOU DONT WANT TO TEST WITH THE MODEL
                     # time.sleep(1)
                     # response = random.randint(0, 10)
@@ -493,10 +536,17 @@ if st.session_state.page == "HK DSE":
                         feedback_prompt = get_HKDSE_tutor_feedback_prompt(st.session_state.hkdse_generated_questions, hkdse_answers)
                         
                         # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
-                        feedback_response = client.models.generate_content(
-                            model=MODEL_ID,
-                            contents=[feedback_prompt]
-                        ).text
+                        feedback_response = rag_model.generate_content(feedback_prompt).text
+
+                        # if feedback_response.candidates[0].grounding_metadata:
+                        #     metadata = feedback_response.candidates[0].grounding_metadata
+                        #     print("\nSources used for feedback:")
+                            
+                        #     if metadata.grounding_chunks:
+                        #         for i, chunk in enumerate(metadata.grounding_chunks):
+                        #             source_name = chunk.retrieved_context.uri.split('/')[-1]
+                        #             print(f"[{i+1}] {source_name}")
+                        # feedback_response = feedback_response.text
 
                         # COMMENT THIS BACK IN WHEN YOU DONT WANT TO TEST WITH THE MODEL
                         # time.sleep(3)
@@ -538,7 +588,7 @@ if st.session_state.page == "HK DSE":
                         # Get AI response with full conversation context
                         full_prompt = (
                             f"{st.session_state.hkdse_followup_conversation}"
-                            f"As a tutor, continue the conversation and provide helpful guidance based on all context above."
+                            f"As a tutor, continue the conversation and provide helpful guidance based on all context above. Try to point out specific shortcomings of the user's answers and general mistakes (such as not thinking critically enough), based on the official HKDSE marking scheme, and give specific advice on how to improve according to HKDSE standards."
                         )
                         
                         # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
