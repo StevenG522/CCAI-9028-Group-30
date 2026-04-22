@@ -209,6 +209,7 @@ def get_HKDSE_tutor_feedback_prompt(questions, user_answers):
 - End with a short practice tip
 - Keep total explanation between 150-250 words
 - Do not be sarcastic or negative — always encouraging
+- Try to point out specific shortcomings of the user's answers and general mistakes (such as not thinking critically enough), based on the official HKDSE marking scheme, and give specific advice on how to improve according to HKDSE standards.
 
 Example output:
 
@@ -586,14 +587,11 @@ if st.session_state.page == "HK DSE":
                         # Get AI response with full conversation context
                         full_prompt = (
                             f"{st.session_state.hkdse_followup_conversation}"
-                            f"As a tutor, continue the conversation and provide helpful guidance based on all context above. Try to point out specific shortcomings of the user's answers and general mistakes (such as not thinking critically enough), based on the official HKDSE marking scheme, and give specific advice on how to improve according to HKDSE standards."
+                            f"As a tutor, continue the conversation and provide helpful guidance based on all context above."
                         )
                         
                         # COMMENT THIS BACK IN WHEN YOU WANT TO TEST WITH THE MODEL
-                        response = client.models.generate_content(
-                            model=MODEL_ID,
-                            contents=[full_prompt]
-                        )
+                        response = rag_model.generate_content(full_prompt)
                         ai_response = response.text
 
                         # COMMENT THIS BACK IN WHEN YOU DONT WANT TO TEST WITH THE MODEL
