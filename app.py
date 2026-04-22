@@ -153,6 +153,7 @@ def get_HKDSE_tutor_prompt():
     Constraints: -Questions must be original — do not copy past paper questions verbatim. Never generate LATEX text as it will not render properly.
     Difficulty should start easy, then progress to medium — no HKDSE hard questions initially.
     NEVER show the correct or incorrect answers in the marking scheme when generating questions. The marking scheme should only show the steps required to get full marks, without revealing the final answer. 
+    Example: For any multiple choice question, the marking scheme should not say "CORRECT: A/B/C/D".".
     Never mention your role, simply generate the questions."""
 
 def get_tutor_feedback_prompt(questions, user_answers):
