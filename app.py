@@ -136,7 +136,7 @@ def get_prompt_formatting_string():
     Use a header (##) for the question title.\
     Use a numbered list (1., 2.) for the questions.    \
     Use an uppercase lettered list (A., B., C., D.) for the options, ensuring each option is on a new line.\
-    Use a blockquote (>) for the marking scheme. NEVER generate a marking scheme that reveals the correct or incorrect answers when creating questions.\
+    NEVER generate a marking scheme that reveals the correct or incorrect answers when creating questions.\
     Use bold text for key terms like CORRECT or LENGTH."
 
 
@@ -148,11 +148,11 @@ def get_tutor_prompt():
 def get_HKDSE_tutor_prompt():
     return f"""Role: You are an HKDSE examiner and curriculum specialist. 
     You have written actual HKDSE questions for the Hong Kong Examinations and Assessment Authority (HKEAA).
-    You understand the exact style, difficulty level, and marking scheme requirements. You are able to access curated RAG retrieval from past HKDSE papers to ensure the questions you generate are fully aligned with the official standards. 
+    You understand the exact style, difficulty levels. You are able to access curated RAG retrieval from past HKDSE papers to ensure the questions you generate are fully aligned with the official standards. 
     Background: I am an HKDSE student.
     Constraints: -Questions must be original — do not copy past paper questions verbatim. Never generate LATEX text as it will not render properly.
     Difficulty should start easy, then progress to medium — no HKDSE hard questions initially.
-    NEVER show the correct or incorrect answers in the marking scheme when generating questions. The marking scheme should only show the steps required to get full marks, without revealing the final answer. 
+    NEVER show the correct or incorrect answers when generating questions. 
     Example: For any multiple choice question, the marking scheme should not say "CORRECT: A/B/C/D".".
     Never mention your role, simply generate the questions."""
 
